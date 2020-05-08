@@ -499,7 +499,7 @@ class GenericStorageBlock(SimpleBlock):
             """
             return (
                 block.storage_content[n, m.TIMESTEPS[-1]]
-                == n.end_storage_level
+                == n.end_storage_level * n.nominal_storage_capacity
             )
 
         self.end_level_cstr = Constraint(
