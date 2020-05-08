@@ -414,12 +414,6 @@ class GenericStorageBlock(SimpleBlock):
                 )
                 self.init_content[n].fix()
 
-            if n.end_storage_level is not None:
-                self.end_content[n] = (
-                    n.end_storage_level * n.nominal_storage_capacity
-                )
-                self.end_content[n].fix()
-
         #  ************* Constraints ***************************
 
         reduced_timesteps = [x for x in m.TIMESTEPS if x > 0]
@@ -505,7 +499,7 @@ class GenericStorageBlock(SimpleBlock):
             """
             return (
                 block.storage_content[n, m.TIMESTEPS[-1]]
-                == block.end_content[n]
+                == n.end_storage_level
             )
 
         self.end_level_cstr = Constraint(
