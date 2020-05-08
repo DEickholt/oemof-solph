@@ -133,6 +133,7 @@ class GenericStorage(network.Transformer):
         super().__init__(*args, **kwargs)
         self.nominal_storage_capacity = kwargs.get("nominal_storage_capacity")
         self.initial_storage_level = kwargs.get("initial_storage_level")
+        self.end_storage_level = kwargs.get("end_storage_level")
         self.balanced = kwargs.get("balanced", True)
         self.loss_rate = solph_sequence(kwargs.get("loss_rate", 0))
         self.fixed_losses_relative = solph_sequence(
@@ -413,6 +414,12 @@ class GenericStorageBlock(SimpleBlock):
                 )
                 self.init_content[n].fix()
 
+            if n.end_storage_level is not None:
+                self.end_content[n] = (
+                    n.end_storage_level * n.nominal_storage_capacity
+                )
+                self.end_content[n].fix()
+
         #  ************* Constraints ***************************
 
         reduced_timesteps = [x for x in m.TIMESTEPS if x > 0]
@@ -445,6 +452,36 @@ class GenericStorageBlock(SimpleBlock):
 
         self.balance_first = Constraint(
             self.STORAGES, rule=_storage_balance_first_rule
+        )
+
+        # storage balance constraint (first time step)
+        def _storage_balance_last_rule(block, n):
+            """
+            Rule definition for the storage balance of every storage n for
+            the first timestep.
+            """
+            expr = 0
+            expr += block.storage_content[n, -1]
+            expr += (
+                -block.end_content[n]
+                * (1 - n.loss_rate[-1]) ** m.timeincrement[-1]
+            )
+            expr += (
+                n.fixed_losses_relative[-1]
+                * n.nominal_storage_capacity
+                * m.timeincrement[-1]
+            )
+            expr += n.fixed_losses_absolute[-1] * m.timeincrement[-1]
+            expr += (
+                -m.flow[i[n], n, -1] * n.inflow_conversion_factor[-1]
+            ) * m.timeincrement[-1]
+            expr += (
+                m.flow[n, o[n], -1] / n.outflow_conversion_factor[-1]
+            ) * m.timeincrement[-1]
+            return expr == 0
+
+        self.balance_last = Constraint(
+            self.STORAGES, rule=_storage_balance_last_rule
         )
 
         # storage balance constraint (every time step but the first)
